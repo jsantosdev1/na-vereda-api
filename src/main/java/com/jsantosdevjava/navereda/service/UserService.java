@@ -1,17 +1,25 @@
 package com.jsantosdevjava.navereda.service;
 
+import com.jsantosdevjava.navereda.model.Preferencia;
 import com.jsantosdevjava.navereda.model.User;
+import com.jsantosdevjava.navereda.repository.PreferenciaRepository;
 import com.jsantosdevjava.navereda.repository.UserRepository;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+import java.util.UUID;
 
 @Service
 public class UserService {
 
     private final UserRepository repositorio;
+    private final PreferenciaRepository preferenciaRepository;
+    private final PasswordEncoder passwordEncoder;
 
-    public UserService(UserRepository repositorio) {
+    public UserService(UserRepository repositorio, PreferenciaRepository preferenciaRepository, PasswordEncoder passwordEncoder) {
         this.repositorio = repositorio;
+        this.preferenciaRepository = preferenciaRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     public User cadastrarUsuario(User usuario) {
@@ -19,6 +27,8 @@ public class UserService {
         if (repositorio.existsByEmail(usuario.getEmail())) {
             throw new IllegalArgumentException("E-mail já cadastrado na Vereda");
         }
+        String senhaCriptografada = passwordEncoder.encode(usuario.getSenha());
+        usuario.setSenha(senhaCriptografada);
         //integração: Buscar o CEP na API externa
         String cepFormatado = usuario.getCep();
         String url = "https://viacep.com.br/ws/" + cepFormatado + "/json/";
@@ -43,8 +53,23 @@ public class UserService {
         return repositorio.save(usuario);
     }
 
-    //DTO interno para pegar os dados do ViaCEP (Campos têm que ser iguais ao JSON da API)
-    //usar static para não depender da instância do Service
+    public Preferencia salvarPreferencia(UUID idUsuario, Preferencia novaPreferencia) {
+        User usuario = repositorio.findById(idUsuario)
+                .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado"));
+
+        Preferencia existente = preferenciaRepository.findByUsuario(usuario);
+
+        if (existente != null) {
+            existente.setOrcamento(novaPreferencia.getOrcamento());
+            existente.setEstilo(novaPreferencia.getEstilo());
+            existente.setDistancia(novaPreferencia.getDistancia());
+            return preferenciaRepository.save(existente);
+        } else {
+            novaPreferencia.setUsuario(usuario);
+            return preferenciaRepository.save(novaPreferencia);
+        }
+    }
+
     public static class ViaCepDto {
         public String cep;
         public String logradouro;

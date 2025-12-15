@@ -27,6 +27,8 @@ public class User {
     private Double latitude;
     private Double longitude;
 
+    @OneToOne(mappedBy = "usuario", cascade = CascadeType.ALL)
+    private Preferencia preferencia;
 
     public User(String nome, String email, String senha, String cep, String numero, String complemento) {
         this.nome = nome;
